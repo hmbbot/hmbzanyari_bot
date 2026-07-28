@@ -14,8 +14,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # بەکارهێنانی مۆدێلی فەرمی و نوێی gemini-2.0-flash
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    # بەکارهێنانی مۆدێلی gemini-1.5-flash کە زۆرترین بەردەستی هەیە لەسەر Free Tier
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
@@ -49,8 +49,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         error_msg = str(e)
-        logging.error(f"Gemini Error: {error_msg}")
-        await update.message.reply_text(f"⚠️ هەڵە: {error_msg}")
+        if "429" in error_msg:
+            await update.message.reply_text("⚠️ زۆر داواکاری لە کاتێکی کەمدا نێردراوە. تکایە چەند چرکەیەک چاوەڕوان بە و دووبارە تاقی بکەرەوە.")
+        else:
+            logging.error(f"Gemini Error: {error_msg}")
+            await update.message.reply_text(f"⚠️ هەڵە: {error_msg}")
 
 if __name__ == '__main__':
     if not TOKEN:
