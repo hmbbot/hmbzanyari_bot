@@ -14,8 +14,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # بەکارهێنانی مۆدێلی چاککراو
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # بەکارهێنانی مۆدێلی فەرمی و نوێی gemini-2.0-flash
+    model = genai.GenerativeModel('gemini-2.0-flash')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
