@@ -14,8 +14,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # گۆڕینی مۆدێل بۆ gemini-1.5-pro بۆ ئەوەی هیچ هەڵەیەکی 404 نەدات
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # بەکارهێنانی مۆدێلی چاککراو
+    model = genai.GenerativeModel('gemini-2.5-flash')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
