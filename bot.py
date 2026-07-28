@@ -14,7 +14,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # گۆڕینی مۆدێل بۆ gemini-1.5-pro بۆ ئەوەی هیچ هەڵەیەکی 404 نەدات
+    model = genai.GenerativeModel('gemini-1.5-pro')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
@@ -31,7 +32,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"3. ناوی هاوسەر (خێزان)\n"
         f"4. ژمارەی منداڵەکان\n"
         f"5. ناوی منداڵەکان لەگەڵ ساڵی لەدایکبوونیان (مۆلید)\n"
-        f"ئەگەر زانیاریت لەسەر نەبوو، بە جوانی پێمی بڵێ."
+        f"ئەگەر زانیاریت لەسەر نەبوو، بە جوانی پێمی بڵێ کە زانیاری لەبەردەستدا نییە."
     )
 
     try:
@@ -47,10 +48,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(formatted_response, parse_mode="Markdown")
         
     except Exception as e:
-        # لێرەدا هۆکاری ڕاستەقینەی هەڵەکە دەنێرین بۆ ئەوەی بزانین کێشەکە چییە
         error_msg = str(e)
         logging.error(f"Gemini Error: {error_msg}")
-        await update.message.reply_text(f"⚠️ هەڵەی جێמיני: {error_msg}")
+        await update.message.reply_text(f"⚠️ هەڵە: {error_msg}")
 
 if __name__ == '__main__':
     if not TOKEN:
