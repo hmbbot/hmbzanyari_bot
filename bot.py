@@ -30,7 +30,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
             InlineKeyboardButton("🎬 ڤیدیۆ", callback_data="dl_video"),
-            InlineKeyboardButton("📥 MP4", callback_data="dl_mp4"),
             InlineKeyboardButton("🎵 MP3", callback_data="dl_mp3")
         ]
     ]
@@ -66,31 +65,17 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(api_url, headers=headers, params=querystring, timeout=20)
         res = response.json()
         
-        # چاپکردنی وەڵامەکە بۆ پشکنین لە لۆگ
-        print("API Response:", res)
-
-        if not res or ("body" not in res and "data" not in res and "video" not in res and "play" not in res):
-            # با دڵنیابین لەوەی وەڵامێکی دروست هاتووە
-            pass
-
-        # وەرگرتنی بەستەری ڤیدیۆ و دەنگ بەپێی فۆرماتی API
-        # زۆربەی کات لەم APIـیەدا لینکەکان لەناو body یان بە شێوەی ڕاستەوخۆ دەگەڕێنەوە
         video_url = None
         audio_url = None
 
-        if "body" in res:
-            body = res["body"]
-            video_url = body.get("video_url") or body.get("play") or body.get("hdplay")
-            audio_url = body.get("music") or body.get("audio_url")
-        elif "data" in res:
-            data = res["data"]
-            video_url = data.get("play") or data.get("hdplay")
-            audio_url = data.get("music")
-        else:
-            video_url = res.get("play") or res.get("video")
-            audio_url = res.get("music")
+        # هێنانی لینکەکان لەو فۆرماتەی کە لە وێنەکەدا دەرکەوت
+        if "video" in res and isinstance(res["video"], list) and len(res["video"]) > 0:
+            video_url = res["video"][0]
+        
+        if "music" in res and isinstance(res["music"], list) and len(res["music"]) > 0:
+            audio_url = res["music"][0]
 
-        if not video_url and not audio_url:
+        if not video_url:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
@@ -98,23 +83,29 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        if action in ["dl_video", "dl_mp4"]:
-            file_url = video_url or audio_url
+        if action == "dl_video":
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
                 text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
             )
-            await query.message.reply_video(video=file_url, supports_streaming=True)
+            await query.message.reply_video(video=video_url, supports_streaming=True)
 
         elif action == "dl_mp3":
-            file_url = audio_url or video_url
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id,
-                text="📤 دەنگی MP3 ئامادە بوو، ئێستا دەنێرم..."
-            )
-            await query.message.reply_audio(audio=file_url)
+            if audio_url:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_message.message_id,
+                    text="📤 دەنگی MP3 ئامادە بوو، ئێستا دەنێرم..."
+                )
+                await query.message.reply_audio(audio=audio_url)
+            else:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_message.message_id,
+                    text="⚠️ مۆسیقا بۆ ئەم ڤیدیۆیە نەدۆزراوەتەوە."
+                )
+                return
 
         await context.bot.delete_message(
             chat_id=update.effective_chat.id,
