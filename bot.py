@@ -1,8 +1,8 @@
 import logging
 import os
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram import Update, BotCommand
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -11,68 +11,38 @@ logging.basicConfig(
 
 TOKEN = os.environ.get("TOKEN")
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [
-            InlineKeyboardButton("🎵 تیکتۆک (TikTok)", callback_data="download_tiktok"),
-            InlineKeyboardButton("📸 اینستاگرام (Instagram)", callback_data="download_instagram")
-        ]
+async def set_commands(app):
+    # ئەم بەشە فەرمانەکان لە بۆتەکەدا تۆمار دەکات بۆ ئەوەی لە کاتی دابگرتنی سلاش (/) دەربکەون
+    commands = [
+        BotCommand("start", "دەستپێکردنی بۆت"),
+        BotCommand("tiktok", "دابەزاندنی ڤیدیۆی تیکتۆک"),
+        BotCommand("instagram", "دابەزاندنی ڤیدیۆی اینستاگرام")
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
+    await app.bot.set_my_commands(commands)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 سڵاو! بە خێر بێیت بۆ بۆتی دابەزاندنی ڤیدیۆ.\n\n"
-        "تکایە پلاتفۆرمی مەبەست هەڵبژێرە:",
-        reply_markup=reply_markup
+        "👋 سڵاو! بۆ دابەزاندنی ڤیدیۆ، سلاش (/) دابگرە و فەرمانی مەبەست هەڵبژێرە:\n\n"
+        "🎵 `/tiktok [لینک]`\n"
+        "📸 `/instagram [لینک]`",
+        parse_mode="Markdown"
     )
 
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == "download_tiktok":
-        context.user_data['platform'] = 'tiktok'
-        await query.message.reply_text("🎵 تکایە **لینکەی تیکتۆک** بنێرە:")
-    elif query.data == "download_instagram":
-        context.user_data['platform'] = 'instagram'
-        await query.message.reply_text("📸 تکایە **لینکەی اینستاگرام** بنێرە:")
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text.strip()
-    
-    if not url.startswith("http"):
-        await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینە بنێرە.")
+async def tiktok_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("⚠️ تکایە لینکەکە دوای فەرمانەکە بنووسە.\nنموونە:\n`/tiktok https://vt.tiktok.com/...`", parse_mode="Markdown")
         return
 
-    platform = context.user_data.get('platform')
-    
-    if platform == 'tiktok' and "tiktok.com" not in url:
-        await update.message.reply_text("⚠️ ئەمە لینکێکی تیکتۆک نییە. سەرەتا `/start` دابگرە و پلاتفۆرمەکە هەڵبژێرەوە.")
-        return
-    elif platform == 'instagram' and "instagram.com" not in url:
-        await update.message.reply_text("⚠️ ئەمە لینکێکی اینستاگرام نییە. سەرەتا `/start` دابگرە و پلاتفۆرمەکە هەڵبژێرەوە.")
-        return
-
-    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە ئامادە دەکەم...")
-
-    video_url = None
+    url = context.args[0].strip()
+    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆی تیکتۆک ئامادە دەکەم...")
 
     try:
-        # بەکارهێنانی APIـی نوێ و خێرا بۆ تیکتۆک و اینستاگرام
-        api_url = f"https://tikwm.com/api/?url={url}" if platform == 'tiktok' else f"https://www.instagram.com/api/v1/oembed/?url={url}"
+        api_url = f"https://tikwm.com/api/?url={url}"
+        res = requests.get(api_url, timeout=20).json()
         
-        if platform == 'tiktok':
-            res = requests.get(api_url, timeout=20).json()
-            if "data" in res and "play" in res["data"]:
-                video_url = res["data"]["play"]
-        else:
-            # بۆ اینستاگرام APIـیەکی جێگیرتر
-            insta_api = f"https://apis.davidcyriltech.my.id/instagram?url={url}"
-            res = requests.get(insta_api, timeout=20).json()
-            if "download_url" in res:
-                video_url = res["download_url"]
-            elif "result" in res:
-                video_url = res["result"]
+        video_url = None
+        if "data" in res and "play" in res["data"]:
+            video_url = res["data"]["play"]
 
         if video_url:
             await context.bot.edit_message_text(
@@ -80,32 +50,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=status_message.message_id,
                 text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
             )
-            
-            await update.message.reply_video(
-                video=video_url,
-                supports_streaming=True
-            )
-            
-            await context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id
-            )
-            
-            context.user_data['platform'] = None
+            await update.message.reply_video(video=video_url, supports_streaming=True)
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
         else:
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ ناتوانم ئەم لینکەی تیکتۆک بخوێنمەوە.")
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ هەڵەیەک ڕووی دا.")
+
+async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("⚠️ تکایە لینکەکە دوای فەرمانەکە بنووسە.\nنموونە:\n`/instagram https://www.instagram.com/reel/...`", parse_mode="Markdown")
+        return
+
+    url = context.args[0].strip()
+    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆی اینستاگرام ئامادە دەکەم...")
+
+    try:
+        # APIـی نوێ و زۆر بەهێز بۆ اینستاگرام
+        api_url = f"https://apis.davidcyriltech.my.id/instagram?url={url}"
+        res = requests.get(api_url, timeout=20).json()
+        
+        video_url = None
+        if "download_url" in res:
+            video_url = res["download_url"]
+        elif "result" in res:
+            video_url = res["result"]
+        elif "data" in res and "url" in res["data"]:
+            video_url = res["data"]["url"]
+
+        if video_url:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
-                text="⚠️ ببورە، ناتوانم ئەم لینکە بخوێنمەوە یان ڤیدیۆکە نییە."
+                text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
             )
-
+            await update.message.reply_video(video=video_url, supports_streaming=True)
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
+        else:
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ ناتوانم ئەم لینکەی اینستاگرام بخوێنمەوە.")
     except Exception as e:
         logging.error(f"Error: {str(e)}")
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_message.message_id,
-            text="⚠️ هەڵەیەک ڕووی دا لە هێنانی ڤیدیۆکە."
-        )
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ هەڵەیەک ڕووی دا.")
 
 if __name__ == '__main__':
     if not TOKEN:
@@ -113,9 +99,14 @@ if __name__ == '__main__':
     else:
         app = ApplicationBuilder().token(TOKEN).build()
         
+        # تۆمارکردنی فەرمانەکان
+        app.job_queue() # پاشخان
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(set_commands(app))
+
         app.add_handler(CommandHandler("start", start_command))
-        app.add_handler(CallbackQueryHandler(button_click))
-        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+        app.add_handler(CommandHandler("tiktok", tiktok_command))
+        app.add_handler(CommandHandler("instagram", instagram_command))
         
         print("🤖 بۆت دەستی بە کارکردن کرد...")
         app.run_polling()
