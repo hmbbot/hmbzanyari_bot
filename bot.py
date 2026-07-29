@@ -1,8 +1,8 @@
 import logging
 import os
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+import yt_dlp
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,56 +18,53 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینەی ڤیدیۆ بنێرە.")
         return
 
-    status_message = await update.message.reply_text("⏳ خەریکە لینکەکە دەخوێنمەوە و ڤیدیۆکە دابەزێنم...")
+    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە دادەبەزێنم...")
 
-    video_url = None
+    output_template = 'video_%(id)s.%(ext)s'
+    ydl_opts = {
+        'format': 'best[filesize<50M]/best',
+        'outtmpl': output_template,
+        'geo_bypass': True,
+        'nocheckcertificate': True,
+    }
 
+    filename = None
     try:
-        # ئەگەر لینکەکە هی تیکتۆک بوو
-        if "tiktok.com" in url:
-            api_url = f"https://tikwm.com/api/?url={url}"
-            res = requests.get(api_url, timeout=15).json()
-            if "data" in res and "play" in res["data"]:
-                video_url = res["data"]["play"]
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
 
-        # ئەگەر لینکەکە هی یوتیوب، اينستاگرام یا هەر شوێنێکی تر بوو
-        else:
-            api_url = f"https://apis.davidcyriltech.my.id/download/tout?url={url}"
-            res = requests.get(api_url, timeout=15).json()
-            if "result" in res and "video" in res["result"]:
-                video_url = res["result"]["video"]
-            elif "data" in res and "url" in res["data"]:
-                video_url = res["data"]["url"]
-
-        if video_url:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id,
-                text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
-            )
-            
-            await update.message.reply_video(
-                video=video_url,
-                supports_streaming=True
-            )
-            
-            await context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id
-            )
-        else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id,
-                text="⚠️ ببورە، ناتوانم ئەم لینکە بخوێنمەوە یان قەبارەکەی زۆر گەورەیە."
-            )
-
-    except Exception as e:
-        logging.error(f"Error: {str(e)}")
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="⚠️ هەڵەیەک ڕووی دا."
+            text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
+        )
+
+        with open(filename, 'rb') as video_file:
+            await update.message.reply_video(
+                video=video_file,
+                supports_streaming=True
+            )
+
+        if os.path.exists(filename):
+            os.remove(filename)
+
+        await context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=status_message.message_id
+        )
+
+    except Exception as e:
+        error_msg = str(e)
+        logging.error(f"Download Error: {error_msg}")
+        
+        if filename and os.path.exists(filename):
+            os.remove(filename)
+            
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_message.message_id,
+            text="⚠️ ببورە، قەبارەی ئەم ڤیدیۆیە زۆر گەورەیە یان لینکەکە کێشەی هەیە."
         )
 
 if __name__ == '__main__':
@@ -77,5 +74,5 @@ if __name__ == '__main__':
         app = ApplicationBuilder().token(TOKEN).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
         
-        print("🤖 بۆتی هەمەڕەنگ دەستی بە کارکردن کرد...")
+        print("🤖 بۆتی دابەزێنەر دەستی بە کارکردن کرد...")
         app.run_polling()
