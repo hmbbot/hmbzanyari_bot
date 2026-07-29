@@ -50,23 +50,25 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     action = query.data
-    status_message = await query.message.reply_text("⏳ خەریکە ڤیدیۆکە ئامادە دەکەم...")
+    status_message = await query.message.reply_text("⏳ خەریکە زانیاری ڤیدیۆکە دەهێنم...")
 
     try:
         api_url = "https://www.tikwm.com/api/"
-        querystring = {"url": url}
+        querystring = {"url": url, "hd": "1"}
 
         response = requests.get(api_url, params=querystring, timeout=20)
         res = response.json()
 
         video_url = None
         audio_url = None
+        title = "تیکتۆک"
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
-            # بەکارهێنانی لینکی play بۆ ئەوەی هەمیشە بێتە ناو چات
-            video_url = data.get("play") or data.get("hdplay")
+            # یەکەمجار هەوڵ دەدەین سەیری HD بکەین، ئەگەر نەبوو ئاسایی
+            video_url = data.get("hdplay") or data.get("play")
             audio_url = data.get("music")
+            title = data.get("title", "فایلی تیکتۆک")
 
         if not video_url:
             await context.bot.edit_message_text(
@@ -77,16 +79,50 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if action == "dl_video":
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id,
-                text="📤 ڤیدیۆکە دەنێرمە ناو چات..."
-            )
-            await query.message.reply_video(video=video_url, supports_streaming=True)
-            await context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id
-            )
+            # پشکنینی قەبارەی ڤیدیۆکە پێش ناردن بۆ ناو چات
+            file_size = 0
+            try:
+                head_res = requests.head(video_url, timeout=10)
+                file_size = int(head_res.headers.get('Content-Length', 0))
+            except:
+                pass
+
+            # سنووری تێلیگرام بۆ ناردنی ڤیدیۆ لە چاتدا نزیکەی 50 مێگابایتە (50 * 1024 * 1024 بايت)
+            # ئەگەر قەبارەکە گەورەتر بوو، دەیبەینە دەرەوە بە دوگمە
+            if file_size > 45 * 1024 * 1024:
+                keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆی قورس (HD)", url=video_url)]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_message.message_id,
+                    text=f"📌 **ناونیشان:** {title}\n\n⚠️ **ئاگاداری:** ئەم ڤیدیۆیە قەبارەکەی زۆر گەورەیە و تێلیگرام ناتوانێت لە ناو چاتدا بڵاوی بکاتەوە. دەتوانیت لە ڕێگەی ئەم دوگمەیەی خوارەوە بە خێرایی دایبەزێنیت:",
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+            else:
+                # ئەگەر قەبارەکەی ئاسایی بوو، ڕاستەوخۆ لەناو چات دەنێرین
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_message.message_id,
+                    text="📤 ڤیدیۆکە دەنێرمە ناو چات..."
+                )
+                try:
+                    await query.message.reply_video(video=video_url, supports_streaming=True)
+                    await context.bot.delete_message(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_message.message_id
+                    )
+                except Exception as send_err:
+                    # ئەگەر لە کاتی ناردنیشدا هەڵەیەک ڕووی دا، لینکە دەرەکییەکەی پێشکەش دەکەین
+                    keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆ (لینک)", url=video_url)]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_message.message_id,
+                        text="⚠️ قەبارەی ڤیدیۆکە گەورەیە، تکایە لە ڕێگەی ئەم دوگمەیەوە دایبەزێنە:",
+                        reply_markup=reply_markup
+                    )
 
         elif action == "dl_mp3":
             if audio_url:
