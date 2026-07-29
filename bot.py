@@ -1,8 +1,8 @@
 import logging
 import os
 import requests
-from telegram import Update, BotCommand
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -58,16 +58,15 @@ async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆی اینستاگرام ئامادە دەکەم...")
 
     try:
-        api_url = f"https://apis.davidcyriltech.my.id/instagram?url={url}"
+        # بەکارهێنانی APIـی نوێ و جێگیرتر بۆ اینستاگرام
+        api_url = f"https://api.ryzendev.com/api/downloader/igdl?url={url}"
         res = requests.get(api_url, timeout=20).json()
         
         video_url = None
-        if "download_url" in res:
-            video_url = res["download_url"]
-        elif "result" in res:
-            video_url = res["result"]
-        elif "data" in res and "url" in res["data"]:
-            video_url = res["data"]["url"]
+        if "data" in res and isinstance(res["data"], list) and len(res["data"]) > 0:
+            video_url = res["data"][0].get("url")
+        elif "url" in res:
+            video_url = res["url"]
 
         if video_url:
             await context.bot.edit_message_text(
@@ -84,7 +83,6 @@ async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ هەڵەیەک ڕووی دا.")
 
 async def post_init(application):
-    # ڕێکخستنی فەرمانەکان بە شێوازێکی زۆر پاک و بێ کێشە
     commands = [
         ("start", "دەستپێکردنی بۆت"),
         ("tiktok", "دابەزاندنی ڤیدیۆی تیکتۆک"),
