@@ -10,7 +10,6 @@ logging.basicConfig(
 )
 
 TOKEN = os.environ.get("TOKEN")
-RAPID_API_KEY = os.environ.get("RAPID_API_KEY")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -54,17 +53,11 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await query.message.reply_text("⏳ خەریکە فایلەکە ئامادە دەکەم...")
 
     try:
-        api_key = RAPID_API_KEY.strip() if RAPID_API_KEY else ""
-
-        # بەکارهێنانی ئیندپۆینتێکی تری گونجاو بە شێوازی GET
-        api_url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/vid/index"
+        # بەکارهێنانی ئەیپییەی TikWM بە شێوازی GET
+        api_url = "https://www.tikwm.com/api/"
         querystring = {"url": url}
-        headers = {
-            "x-rapidapi-key": api_key,
-            "x-rapidapi-host": "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com"
-        }
 
-        response = requests.get(api_url, headers=headers, params=querystring, timeout=20)
+        response = requests.get(api_url, params=querystring, timeout=20)
         res = response.json()
         
         print(f"API RESPONSE: {res}")
@@ -72,30 +65,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
 
-        if isinstance(res, dict):
-            # گەڕان بەدوای لینکەکاندا لە وەڵامی ئەیپییەکەدا
-            def extract_urls(data):
-                nonlocal video_url, audio_url
-                if isinstance(data, dict):
-                    for k, v in data.items():
-                        if isinstance(v, str) and v.startswith("http"):
-                            if any(ext in v.lower() for ext in [".mp4", "play", "hd", "watermark"]) and not video_url:
-                                video_url = v
-                            elif any(ext in v.lower() for ext in [".mp3", "music", "audio"]) and not audio_url:
-                                audio_url = v
-                        elif isinstance(v, (dict, list)):
-                            extract_urls(v)
-                elif isinstance(data, list):
-                    for item in data:
-                        extract_urls(item)
-
-            extract_urls(res)
-            
-            # ئەگەر بە شێوازی ڕاستەوخۆش لەناو کییە سەرەکییەکاندا هەبن
-            if not video_url:
-                video_url = res.get("video") or res.get("play") or res.get("hdplay")
-            if not audio_url:
-                audio_url = res.get("music") or res.get("audio")
+        if isinstance(res, dict) and res.get("code") == 0:
+            data = res.get("data", {})
+            # لینکی ڤیدیۆ بێ لۆگۆ
+            video_url = data.get("play")
+            # لینکی دەنگی مۆسیقا
+            audio_url = data.get("music")
 
         if not video_url:
             await context.bot.edit_message_text(
