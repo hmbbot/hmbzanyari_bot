@@ -3,6 +3,7 @@ import os
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+import yt_dlp
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -13,7 +14,7 @@ TOKEN = os.environ.get("TOKEN")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 سڵاو! بۆ دابەزاندنی ڤیدیۆ یان وێنەکانی تیکتۆک، تەنها لینکەکەی بنێرە:",
+        "👋 سڵاو! بۆ دابەزاندنی ڤیدیۆ، وێنەکان (Slideshow) و گۆرانییە تەواوەکانی تیکتۆک، تەنها لینکەکەی بنێرە:",
         parse_mode="Markdown"
     )
 
@@ -44,16 +45,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg.message_id,
                     text="📸 وێنەکان دۆزرانەوە، خەریکە دەیاننێرمە ناو چات..."
                 )
-                
                 media_group = [InputMediaPhoto(media=img_url) for img_url in images[:10]]
                 await update.message.reply_media_group(media=media_group)
-                
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg.message_id)
                 return
 
-    except Exception as e:
-        logging.error(f"Image processing error: {str(e)}")
+            # هەڵگرتنی ناوی مۆسیقاکە بۆ ئەوەی دواتر گۆرانییە تەواوەکەی پێ بدۆزینەوە
+            music_info = data.get("music_info", {})
+            music_title = music_info.get("title") or data.get("title") or "TikTok Audio"
+            music_author = music_info.get("author") or "TikTok"
+            context.user_data['music_query'] = f"{music_title} - {music_author}"
 
+    except Exception as e:
+        logging.error(f"Error fetching info: {str(e)}")
+        context.user_data['music_query'] = "TikTok Audio"
+
+    # دوگمەکانی هەڵبژاردن بۆ ڤیدیۆ یان گۆرانییە تەواوەکە
     keyboard = [
         [
             InlineKeyboardButton("🎬 ڤیدیۆ", callback_data="dl_video"),
@@ -75,6 +82,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     url = context.user_data.get('tiktok_url')
+    music_query = context.user_data.get('music_query', 'TikTok Audio')
+    
     if not url:
         await query.message.reply_text("⚠️ کێشەیەک ڕووی دا. سکاڵایە دووبارە لینکەکە بنێرەوە.")
         return
@@ -90,30 +99,22 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = response.json()
 
         video_url = None
-        audio_url = None
-        title = "تیکتۆک"
-        performer = "تیکتۆک"
+        title = "فایلی تیکتۆک"
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
             video_url = data.get("hdplay") or data.get("play")
-            
-            music_info = data.get("music_info", {})
-            # لێرەدا دەگەڕێین بۆ لینکی سەرەکی مۆسیقاکە کە لە music_info هەیە
-            audio_url = music_info.get("play") or data.get("music")
-            
-            title = music_info.get("title") or data.get("title", "فایلی تیکتۆک")
-            performer = music_info.get("author") or "TikTok Audio"
-
-        if not video_url and action == "dl_video":
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_message.message_id,
-                text="⚠️ ناتوانم ئەم لینکەی تیکتۆک بخوێنمەوە."
-            )
-            return
+            title = data.get("title", "فایلی تیکتۆک")
 
         if action == "dl_video":
+            if not video_url:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_message.message_id,
+                    text="⚠️ ناتوانم ئەم لینکەی تیکتۆک بخوێنمەوە."
+                )
+                return
+
             file_size = 0
             try:
                 head_res = requests.head(video_url, timeout=10)
@@ -128,7 +129,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id,
-                    text=f"📌 **ناونیشان:** {title}\n\n⚠️ **ئاگاداری:** ئەم ڤیدیۆیە قەبارەکەی زۆر گەورەیە و تێلیگرام ناتوانێت لە ناو چاتدا بڵاوی بکاتەوە. دەتوانیت لە ڕێگەی ئەم دوگمەیەی خوارەوە بە خێرایی دایبەزێنیت:",
+                    text=f"📌 **ناونیشان:** {title}\n\n⚠️ **ئاگاداری:** ئەم ڤیدیۆیە قەبارەکەی زۆر گەورەیە و تێلیگرام ناتوانێت لە ناو چاتدا بڵاوی بکاتەوە. دەتوانیت لە ڕێگەی ئەم دوگمەیەی خوارەوە دایبەزێنیت:",
                     reply_markup=reply_markup,
                     parse_mode="Markdown"
                 )
@@ -140,10 +141,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 try:
                     await query.message.reply_video(video=video_url, supports_streaming=True)
-                    await context.bot.delete_message(
-                        chat_id=update.effective_chat.id,
-                        message_id=status_message.message_id
-                    )
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
                 except:
                     keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆ (لینک)", url=video_url)]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -155,24 +153,66 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
 
         elif action == "dl_mp3":
-            if audio_url:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id,
-                    text="📤 گۆرانییە تەواوەکە دەنێرمە ناو چات..."
-                )
-                # ناردنی دەنگەکە بە ناونیشان و ئەکتەری ڕەسەنی ناو تیکتۆک
-                await query.message.reply_audio(audio=audio_url, title=title, performer=performer)
-                await context.bot.delete_message(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id
-                )
-            else:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id,
-                    text="⚠️ مۆسیقا بۆ ئەم ڤیدیۆیە بە جیا نەدۆزراوەتەوە."
-                )
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_message.message_id,
+                text="🔍 خەریکە بە دوای گۆرانییە تەواوەکەدا دەگەڕێم..."
+            )
+            
+            audio_filename = f"audio_{update.effective_chat.id}.mp3"
+            
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': audio_filename.replace('.mp3', ''),
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'default_search': 'ytsearch1',
+                'quiet': True,
+            }
+
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([f"ytsearch1:{music_query}"])
+                
+                actual_file = None
+                for ext in ['.mp3', '.m4a', '.webm']:
+                    potential_file = audio_filename.replace('.mp3', ext)
+                    if os.path.exists(potential_file):
+                        if ext != '.mp3':
+                            os.rename(potential_file, audio_filename)
+                        actual_file = audio_filename
+                        break
+                
+                if actual_file and os.path.exists(actual_file):
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_message.message_id,
+                        text="📤 گۆرانییە تەواوەکە دەنێرمە ناو چات..."
+                    )
+                    with open(actual_file, 'rb') as audio_file:
+                        await query.message.reply_audio(audio=audio_file, title=music_query)
+                    
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
+                    os.remove(actual_file)
+                else:
+                    raise Exception("File not found")
+
+            except Exception as audio_err:
+                logging.error(f"Audio download error: {str(audio_err)}")
+                # وەک پشتگیریکەر، ئەگەر داگرتنەکە کێشەی هەبوو لینکی ئاسایی دەگەڕێنینەوە
+                music_url = res.get("data", {}).get("music")
+                if music_url:
+                    await query.message.reply_audio(audio=music_url, title=title)
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
+                else:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_message.message_id,
+                        text="⚠️ ناتوانم گۆرانییە تەواوەکە بدۆزمەوە."
+                    )
 
     except Exception as e:
         logging.error(f"Error: {str(e)}")
