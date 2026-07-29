@@ -54,7 +54,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await query.message.reply_text("⏳ خەریکە فایلەکە ئامادە دەکەم...")
 
     try:
-        api_url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/rich_response/index"
+        # ئیندپۆینتی نوێ و ڕاستەقینە کە لە وێنەکەتدا هەیە
+        api_url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/vid/index"
         querystring = {"url": url}
         headers = {
             "x-rapidapi-key": RAPID_API_KEY,
@@ -68,31 +69,17 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
 
-        # پشکنیینی گشتی بۆ دۆزینەوەی لینکەکان بە هەموو شێوازێک
         if isinstance(res, dict):
-            # گەڕان لە ناو کلیلە باوەکان
-            for key in ["video", "data", "body", "play", "url"]:
-                if key in res:
-                    val = res[key]
-                    if isinstance(val, list) and len(val) > 0:
-                        video_url = val[0]
-                        break
-                    elif isinstance(val, str) and val.startswith("http"):
-                        video_url = val
-                        break
-                    elif isinstance(val, dict):
-                        video_url = val.get("play") or val.get("url") or val.get("video")
-                        if video_url:
-                            break
+            # گەڕان بەدوای داتا یاخود کلیلەکاندا
+            data_dict = res.get("data", res)
+            if isinstance(data_dict, dict):
+                video_url = data_dict.get("video") or data_dict.get("play") or data_dict.get("url")
+                audio_url = data_dict.get("music") or data_dict.get("audio")
 
-            for key in ["music", "audio", "sound"]:
-                if key in res:
-                    val = res[key]
-                    if isinstance(val, list) and len(val) > 0:
-                        audio_url = val[0]
-                        break
-                    elif isinstance(val, str) and val.startswith("http"):
-                        audio_url = val
+            if not video_url:
+                for k in ["video", "play", "url", "link"]:
+                    if k in res and isinstance(res[k], str):
+                        video_url = res[k]
                         break
 
         if not video_url:
