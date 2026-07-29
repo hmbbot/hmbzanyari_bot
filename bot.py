@@ -20,11 +20,14 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە دادەبەزێنم...")
 
+    # ڕێکخستنی پێشکەوتووی yt-dlp بۆ تێپەڕاندنی ڕێگرییەکانی تیکتۆک
     output_template = 'video_%(id)s.%(ext)s'
     ydl_opts = {
         'format': 'best[ext=mp4]/best',
         'outtmpl': output_template,
-        'max_filesize': 50 * 1024 * 1024, # سنووری ٥٠ مێگابایت بۆ تێلیگرام
+        'geo_bypass': True,
+        'nocheckcertificate': True,
+        'quiet': True
     }
 
     filename = None
@@ -63,7 +66,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="⚠️ ببورە، قەبارەی ڤیدیۆکە گەورەیە یان لینکەکە کێشەی هەیە."
+            text="⚠️ ببورە، ناتوانم ئەم ڤیدیۆیە دابەزێنم."
         )
 
 if __name__ == '__main__':
