@@ -45,7 +45,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text="📸 وێنەکان دۆزرانەوە، خەریکە دەیاننێرمە ناو چات..."
                 )
                 
-                # ناردنی هەموو وێنەکان پێکەوە (تا 10 وێنە)
                 media_group = [InputMediaPhoto(media=img_url) for img_url in images[:10]]
                 await update.message.reply_media_group(media=media_group)
                 
@@ -55,7 +54,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"Image processing error: {str(e)}")
 
-    # ئەگەر وێنە نەبوو (واتە ڤیدیۆ بوو)، دوگمەکانی هەڵبژاردنی بۆ دەنێرین
     keyboard = [
         [
             InlineKeyboardButton("🎬 ڤیدیۆ", callback_data="dl_video"),
@@ -94,17 +92,18 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
         title = "تیکتۆک"
+        performer = "تیکتۆک"
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
-            # یەکەمجار هەوڵ دەدەین سەیری HD بکەین، ئەگەر نەبوو ئاسایی
             video_url = data.get("hdplay") or data.get("play")
             
-            # بەدوای گۆرانییەکەدا دەگەڕێین (پێشەنگی دەدەین بە لینکی سەرەکی گۆرانییەکە music_info)
             music_info = data.get("music_info", {})
+            # لێرەدا دەگەڕێین بۆ لینکی سەرەکی مۆسیقاکە کە لە music_info هەیە
             audio_url = music_info.get("play") or data.get("music")
             
-            title = data.get("title", "فایلی تیکتۆک")
+            title = music_info.get("title") or data.get("title", "فایلی تیکتۆک")
+            performer = music_info.get("author") or "TikTok Audio"
 
         if not video_url and action == "dl_video":
             await context.bot.edit_message_text(
@@ -115,7 +114,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if action == "dl_video":
-            # پشکنینی قەبارەی ڤیدیۆکە پێش ناردن بۆ ناو چات
             file_size = 0
             try:
                 head_res = requests.head(video_url, timeout=10)
@@ -123,8 +121,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-            # سنووری تێلیگرام بۆ ناردنی ڤیدیۆ لە چاتدا نزیکەی 50 مێگابایتە (50 * 1024 * 1024 بايت)
-            # ئەگەر قەبارەکە گەورەتر بوو، دەیبەینە دەرەوە بە دوگمە
             if file_size > 45 * 1024 * 1024:
                 keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆی قورس (HD)", url=video_url)]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -137,7 +133,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown"
                 )
             else:
-                # ئەگەر قەبارەکەی ئاسایی بوو، ڕاستەوخۆ لەناو چات دەنێرین
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id,
@@ -149,8 +144,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=update.effective_chat.id,
                         message_id=status_message.message_id
                     )
-                except Exception as send_err:
-                    # ئەگەر لە کاتی ناردنیشدا هەڵەیەک ڕووی دا، لینکە دەرەکییەکەی پێشکەش دەکەین
+                except:
                     keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆ (لینک)", url=video_url)]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     await context.bot.edit_message_text(
@@ -167,7 +161,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_message.message_id,
                     text="📤 گۆرانییە تەواوەکە دەنێرمە ناو چات..."
                 )
-                await query.message.reply_audio(audio=audio_url, title=title)
+                # ناردنی دەنگەکە بە ناونیشان و ئەکتەری ڕەسەنی ناو تیکتۆک
+                await query.message.reply_audio(audio=audio_url, title=title, performer=performer)
                 await context.bot.delete_message(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id
