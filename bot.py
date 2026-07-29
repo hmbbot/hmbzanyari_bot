@@ -143,13 +143,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg.message_id,
-        text=get_text(context, "send_link"),
-        reply_markup=reply_markup,
-        parse_mode="Markdown"
-    )
+    try:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg.message_id,
+            text=get_text(context, "send_link"),
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+    except Exception:
+        await update.message.reply_text(
+            get_text(context, "send_link"),
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -160,12 +167,22 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data_callback.startswith("lang_"):
         lang_code = data_callback.split("_")[1]
         context.user_data['language'] = lang_code
-        await query.message.edit_text(get_text(context, "lang_set"), parse_mode="Markdown")
+        try:
+            await query.message.edit_text(get_text(context, "lang_set"), parse_mode="Markdown")
+        except Exception:
+            await query.message.reply_text(get_text(context, "lang_set"), parse_mode="Markdown")
         return
 
     url = context.user_data.get('tiktok_url')
+    
+    # ئەگەر لینکەکە لە یادگەی کاتیدا نەبوو، هەوڵ بدە لە ناونیشانی نامەکەی پێشوو وەریبگرە ئەگەر هه‌بێت
+    if not url and query.message.reply_to_message and query.message.reply_to_message.text:
+        possible_url = query.message.reply_to_message.text.strip()
+        if "tiktok.com" in possible_url or "vt.tiktok.com" in possible_url:
+            url = possible_url
+
     if not url:
-        await query.message.reply_text("⚠️ کێشەیەک ڕووی دا.")
+        await query.message.reply_text("⚠️ بەڕێزم، تکایە جارێکی تر لینکەکە بنێرەوە چونکە یادگە نوێ بووەوە.")
         return
 
     action = data_callback
@@ -258,11 +275,14 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logging.error(f"Error: {str(e)}")
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_message.message_id,
-            text=get_text(context, "error_general")
-        )
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_message.message_id,
+                text=get_text(context, "error_general")
+            )
+        except:
+            pass
 
 async def post_init(application):
     commands = [
