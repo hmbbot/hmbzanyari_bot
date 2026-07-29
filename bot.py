@@ -11,15 +11,6 @@ logging.basicConfig(
 
 TOKEN = os.environ.get("TOKEN")
 
-async def set_commands(app):
-    # ئەم بەشە فەرمانەکان لە بۆتەکەدا تۆمار دەکات بۆ ئەوەی لە کاتی دابگرتنی سلاش (/) دەربکەون
-    commands = [
-        BotCommand("start", "دەستپێکردنی بۆت"),
-        BotCommand("tiktok", "دابەزاندنی ڤیدیۆی تیکتۆک"),
-        BotCommand("instagram", "دابەزاندنی ڤیدیۆی اینستاگرام")
-    ]
-    await app.bot.set_my_commands(commands)
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 سڵاو! بۆ دابەزاندنی ڤیدیۆ، سلاش (/) دابگرە و فەرمانی مەبەست هەڵبژێرە:\n\n"
@@ -67,7 +58,6 @@ async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆی اینستاگرام ئامادە دەکەم...")
 
     try:
-        # APIـی نوێ و زۆر بەهێز بۆ اینستاگرام
         api_url = f"https://apis.davidcyriltech.my.id/instagram?url={url}"
         res = requests.get(api_url, timeout=20).json()
         
@@ -93,17 +83,21 @@ async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error: {str(e)}")
         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=status_message.message_id, text="⚠️ هەڵەیەک ڕووی دا.")
 
+async def post_init(application):
+    # ڕێکخستنی فەرمانەکان بە شێوازێکی زۆر پاک و بێ کێشە
+    commands = [
+        ("start", "دەستپێکردنی بۆت"),
+        ("tiktok", "دابەزاندنی ڤیدیۆی تیکتۆک"),
+        ("instagram", "دابەزاندنی ڤیدیۆی اینستاگرام")
+    ]
+    await application.bot.set_my_commands(commands)
+
 if __name__ == '__main__':
     if not TOKEN:
         print("❌ هەڵە: تۆکنی بۆت نەدۆزراوەتەوە!")
     else:
-        app = ApplicationBuilder().token(TOKEN).build()
+        app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
         
-        # تۆمارکردنی فەرمانەکان
-        app.job_queue() # پاشخان
-        import asyncio
-        asyncio.get_event_loop().run_until_complete(set_commands(app))
-
         app.add_handler(CommandHandler("start", start_command))
         app.add_handler(CommandHandler("tiktok", tiktok_command))
         app.add_handler(CommandHandler("instagram", instagram_command))
