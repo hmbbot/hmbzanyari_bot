@@ -56,7 +56,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         api_key = RAPID_API_KEY.strip() if RAPID_API_KEY else ""
 
-        # ئیندپۆینتی ڕاستەقینە بە شێوازی POST
         api_url = "https://tiktok-video-no-watermark2.p.rapidapi.com/"
         payload = {"url": url, "hd": "1"}
         headers = {
