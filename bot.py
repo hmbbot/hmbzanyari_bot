@@ -1,7 +1,7 @@
 import logging
 import os
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 logging.basicConfig(
@@ -13,7 +13,7 @@ TOKEN = os.environ.get("TOKEN")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 سڵاو! بۆ دابەزاندنی تیکتۆک، تەنها لینکەکەی ڤیدیۆکە بنێرە:",
+        "👋 سڵاو! بۆ دابەزاندنی ڤیدیۆ یان وێنەکانی تیکتۆک، تەنها لینکەکەی بنێرە:",
         parse_mode="Markdown"
     )
 
@@ -26,6 +26,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['tiktok_url'] = url
 
+    # پشکنین بۆ ئەوەی بزانین ئایا پۆستەکە وێنەیە یان ڤیدیۆ
+    try:
+        api_url = "https://www.tikwm.com/api/"
+        querystring = {"url": url}
+        response = requests.get(api_url, params=querystring, timeout=15)
+        res = response.json()
+        
+        if isinstance(res, dict) and res.get("code") == 0:
+            data = res.get("data", {})
+            images = data.get("images")
+            
+            # ئەگەر پۆستەکە وێنە بوو (Slideshow)
+            if images and isinstance(images, list) and len(images) > 0:
+                status_msg = await update.message.reply_text("📸 وێنەکانی تیکتۆک دۆزرانەوە، خەریکە دەیاننێرم...")
+                
+                # ناردنی وێنەکان بە گرووپ (Media Group) یان بە تاک
+                media_group = [InputMediaPhoto(media=img_url) for img_url in images[:10]] # تا 10 وێنە
+                await update.message.reply_media_group(media=media_group)
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg.message_id)
+                return
+
+    except Exception as e:
+        logging.error(f"Image check error: {str(e)}")
+
+    # ئەگەر ڤیدیۆ بوو، هەمان دوگمەکانی پێشووی بۆ دادەنێین
     keyboard = [
         [
             InlineKeyboardButton("🎬 ڤیدیۆ", callback_data="dl_video"),
@@ -65,7 +90,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
-            # یەکەمجار هەوڵ دەدەین سەیری HD بکەین، ئەگەر نەبوو ئاسایی
             video_url = data.get("hdplay") or data.get("play")
             audio_url = data.get("music")
             title = data.get("title", "فایلی تیکتۆک")
@@ -79,7 +103,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if action == "dl_video":
-            # پشکنینی قەبارەی ڤیدیۆکە پێش ناردن بۆ ناو چات
             file_size = 0
             try:
                 head_res = requests.head(video_url, timeout=10)
@@ -87,8 +110,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-            # سنووری تێلیگرام بۆ ناردنی ڤیدیۆ لە چاتدا نزیکەی 50 مێگابایتە (50 * 1024 * 1024 بايت)
-            # ئەگەر قەبارەکە گەورەتر بوو، دەیبەینە دەرەوە بە دوگمە
             if file_size > 45 * 1024 * 1024:
                 keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆی قورس (HD)", url=video_url)]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -101,7 +122,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown"
                 )
             else:
-                # ئەگەر قەبارەکەی ئاسایی بوو، ڕاستەوخۆ لەناو چات دەنێرین
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id,
@@ -113,8 +133,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=update.effective_chat.id,
                         message_id=status_message.message_id
                     )
-                except Exception as send_err:
-                    # ئەگەر لە کاتی ناردنیشدا هەڵەیەک ڕووی دا، لینکە دەرەکییەکەی پێشکەش دەکەین
+                except:
                     keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆ (لینک)", url=video_url)]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     await context.bot.edit_message_text(
