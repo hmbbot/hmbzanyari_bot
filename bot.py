@@ -2,7 +2,7 @@ import logging
 import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
-import google.generativeai as genai
+from openai import OpenAI
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -10,18 +10,20 @@ logging.basicConfig(
 )
 
 TOKEN = os.environ.get("TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# دەتوانین هەمان ناوی GEMINI_API_KEY بەکاربهێنین یان ناوی بگۆڕین
+API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
 
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    # بەکارهێنانی مۆدێلی gemini-1.5-flash کە زۆرترین بەردەستی هەیە لەسەر Free Tier
-    model = genai.GenerativeModel('gemini-1.5-flash')
+# ڕێکخستنی کڵایەنت بۆ OpenRouter (بە سیستمی OpenAI سازگارە)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=API_KEY,
+)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
-    if not GEMINI_API_KEY:
-        await update.message.reply_text("⚠️ هەڵە: GEMINI_API_KEY لە ڕایلی دانەناوە!")
+    if not API_KEY:
+        await update.message.reply_text("⚠️ هەڵە: API Key لە ڕایلی دانەناوە!")
         return
 
     prompt = (
@@ -36,11 +38,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        response = model.generate_content(prompt)
-        ai_reply = response.text
+        # بەکارهێنانی مۆدێلی خۆڕایی و بەهێزی OpenRouter
+        response = client.chat.completions.create(
+            model="deepseek/deepseek-chat", # یان دەتوانیت بەکاربهێنیت meta-llama/llama-3-8b-instruct
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        ai_reply = response.choices[0].message.content
         
         formatted_response = (
-            f"📋 **فۆرمی زانیاری خێزانی (زیرەکی دەستکرد):**\n"
+            f"📋 **فۆرمی زانیاری خێزانی (OpenRouter AI):**\n"
             f"------------------------------------\n"
             f"{ai_reply}\n"
             f"------------------------------------\n"
@@ -49,11 +57,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         error_msg = str(e)
-        if "429" in error_msg:
-            await update.message.reply_text("⚠️ زۆر داواکاری لە کاتێکی کەمدا نێردراوە. تکایە چەند چرکەیەک چاوەڕوان بە و دووبارە تاقی بکەرەوە.")
-        else:
-            logging.error(f"Gemini Error: {error_msg}")
-            await update.message.reply_text(f"⚠️ هەڵە: {error_msg}")
+        logging.error(f"OpenRouter Error: {error_msg}")
+        await update.message.reply_text(f"⚠️ هەڵە: {error_msg}")
 
 if __name__ == '__main__':
     if not TOKEN:
@@ -62,5 +67,5 @@ if __name__ == '__main__':
         app = ApplicationBuilder().token(TOKEN).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
         
-        print("🤖 بۆتە زیرەکەکە دەستی بە کارکردن کرد...")
+        print("🤖 بۆتە زیرەکەکە لەسەر OpenRouter دەستی بە کارکردن کرد...")
         app.run_polling()
