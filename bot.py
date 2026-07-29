@@ -50,29 +50,25 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     action = query.data
-    status_message = await query.message.reply_text("⏳ خەریکە زانیاری ڤیدیۆکە دەهێنم...")
+    status_message = await query.message.reply_text("⏳ خەریکە ڤیدیۆکە ئامادە دەکەم...")
 
     try:
         api_url = "https://www.tikwm.com/api/"
-        # داواکردنی هەردوو جۆرەکە (ئاسایی بۆ ناو چات و HD بۆ دەرەوە)
-        querystring = {"url": url, "hd": "1"}
+        querystring = {"url": url}
 
         response = requests.get(api_url, params=querystring, timeout=20)
         res = response.json()
 
-        normal_video_url = None
-        hd_video_url = None
+        video_url = None
         audio_url = None
-        title = "تیکتۆک"
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
-            normal_video_url = data.get("play")      # ڤیدیۆی ئاسایی بۆ ناو چات
-            hd_video_url = data.get("hdplay")        # ڤیدیۆی کوالیتی بەرز (HD)
+            # بەکارهێنانی لینکی play بۆ ئەوەی هەمیشە بێتە ناو چات
+            video_url = data.get("play") or data.get("hdplay")
             audio_url = data.get("music")
-            title = data.get("title", "فایلی تیکتۆک")
 
-        if not normal_video_url:
+        if not video_url:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
@@ -81,29 +77,16 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if action == "dl_video":
-            # پشکنین: ئەگەر ڤیدیۆی HD هەبوو، بینێرە دەرەوە (چونکە قورسه)، ئەگەر نەبوو یان قەبارەی گچکە بوو، لەناو چات دایبنە
-            if hd_video_url and len(hd_video_url) > 0:
-                keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆی کوالیتی بەرز (HD)", url=hd_video_url)]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id,
-                    text=f"📌 **ناونیشان:** {title}\n\n✨ ئەم ڤیدیۆیە کوالیتییەکەی زۆر بەرزە، دەتوانیت لە ڕێگەی ئەم دوگمەیەی خوارەوە بە خێرایی دایبەزێنیت:",
-                    reply_markup=reply_markup,
-                    parse_mode="Markdown"
-                )
-            else:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id,
-                    text="📤 ڤیدیۆکە دەنێرمە ناو چات..."
-                )
-                await query.message.reply_video(video=normal_video_url, supports_streaming=True)
-                await context.bot.delete_message(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_message.message_id
-                )
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_message.message_id,
+                text="📤 ڤیدیۆکە دەنێرمە ناو چات..."
+            )
+            await query.message.reply_video(video=video_url, supports_streaming=True)
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=status_message.message_id
+            )
 
         elif action == "dl_mp3":
             if audio_url:
