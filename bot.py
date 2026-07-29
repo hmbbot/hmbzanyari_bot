@@ -26,7 +26,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-async button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -85,7 +85,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=status_message.message_id
             )
             
-            # پاککردنەوەی هەڵبژاردن بۆ جارێکیتر
             context.user_data['platform'] = None
         else:
             await context.bot.edit_message_text(
