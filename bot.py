@@ -10,23 +10,23 @@ logging.basicConfig(
 )
 
 TOKEN = os.environ.get("TOKEN")
+RAPID_API_KEY = "fe029a8932msh71f52a8ab3b2e02p1a5a17jsn70cdfac0e61"
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 سڵاو! بۆ دابەزاندنی تیکتۆک، تەنها لینکەکەی ڤیدیۆکە بنێرە بۆ هنا:",
+        "👋 سڵاو! بۆ دابەزاندنی تیکتۆک، تەنها لینکەکەی ڤیدیۆکە بنێرە:",
         parse_mode="Markdown"
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
     
-    if "tiktok.com" not in url:
+    if "tiktok.com" not in url and "vt.tiktok.com" not in url:
         await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینەی تیکتۆک بنێرە.")
         return
 
     context.user_data['tiktok_url'] = url
 
-    # دروستکردنی سێ دوگمەکە بۆ هەڵبژاردن بە ڕەزامەندی خۆت
     keyboard = [
         [
             InlineKeyboardButton("🎬 ڤیدیۆ", callback_data="dl_video"),
@@ -55,9 +55,18 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await query.message.reply_text("⏳ خەریکە فایلەکە ئامادە دەکەم...")
 
     try:
-        api_url = f"https://tikwm.com/api/?url={url}"
-        res = requests.get(api_url, timeout=20).json()
+        api_url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/rich_response/index"
+        querystring = {"url": url}
+        headers = {
+            "x-rapidapi-key": RAPID_API_KEY,
+            "x-rapidapi-host": "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.get(api_url, headers=headers, params=querystring, timeout=20)
+        res = response.json()
         
+        # پشکنینی وەڵامی API
         if "data" not in res:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
@@ -69,7 +78,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = res["data"]
 
         if action == "dl_video":
-            file_url = data.get("play")
+            file_url = data.get("play") or data.get("hdplay")
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
@@ -78,7 +87,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_video(video=file_url, supports_streaming=True)
 
         elif action == "dl_mp4":
-            # لێرەدا دەتوانین لینکەی HD یان play بەکاربهێنین بۆ MP4
             file_url = data.get("hdplay") or data.get("play")
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
@@ -106,7 +114,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="⚠️ هەڵەیەک ڕووی دا لە هێنانی فایلەکە."
+            text="⚠️ هەڵەیەک ڕووی دا در لە هێنانی فایلەکە."
         )
 
 async def post_init(application):
