@@ -58,15 +58,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     video_url = None
 
     try:
-        api_url = f"https://apis.davidcyriltech.my.id/download/tout?url={url}"
-        response = requests.get(api_url, timeout=20).json()
+        # بەکارهێنانی APIـی نوێ و خێرا بۆ تیکتۆک و اینستاگرام
+        api_url = f"https://tikwm.com/api/?url={url}" if platform == 'tiktok' else f"https://www.instagram.com/api/v1/oembed/?url={url}"
         
-        if "result" in response and "video" in response["result"]:
-            video_url = response["result"]["video"]
-        elif "data" in response and "url" in response["data"]:
-            video_url = response["data"]["url"]
-        elif "video" in response:
-            video_url = response["video"]
+        if platform == 'tiktok':
+            res = requests.get(api_url, timeout=20).json()
+            if "data" in res and "play" in res["data"]:
+                video_url = res["data"]["play"]
+        else:
+            # بۆ اینستاگرام APIـیەکی جێگیرتر
+            insta_api = f"https://apis.davidcyriltech.my.id/instagram?url={url}"
+            res = requests.get(insta_api, timeout=20).json()
+            if "download_url" in res:
+                video_url = res["download_url"]
+            elif "result" in res:
+                video_url = res["result"]
 
         if video_url:
             await context.bot.edit_message_text(
@@ -90,7 +96,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
-                text="⚠️ ببورە، ناتوانم ئەم لینکە بخوێنمەوە."
+                text="⚠️ ببورە، ناتوانم ئەم لینکە بخوێنمەوە یان ڤیدیۆکە نییە."
             )
 
     except Exception as e:
