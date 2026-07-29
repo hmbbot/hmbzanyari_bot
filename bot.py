@@ -68,11 +68,32 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
 
-        if "video" in res and isinstance(res["video"], list) and len(res["video"]) > 0:
-            video_url = res["video"][0]
-        
-        if "music" in res and isinstance(res["music"], list) and len(res["music"]) > 0:
-            audio_url = res["music"][0]
+        # پشکنیینی گشتی بۆ دۆزینەوەی لینکەکان بە هەموو شێوازێک
+        if isinstance(res, dict):
+            # گەڕان لە ناو کلیلە باوەکان
+            for key in ["video", "data", "body", "play", "url"]:
+                if key in res:
+                    val = res[key]
+                    if isinstance(val, list) and len(val) > 0:
+                        video_url = val[0]
+                        break
+                    elif isinstance(val, str) and val.startswith("http"):
+                        video_url = val
+                        break
+                    elif isinstance(val, dict):
+                        video_url = val.get("play") or val.get("url") or val.get("video")
+                        if video_url:
+                            break
+
+            for key in ["music", "audio", "sound"]:
+                if key in res:
+                    val = res[key]
+                    if isinstance(val, list) and len(val) > 0:
+                        audio_url = val[0]
+                        break
+                    elif isinstance(val, str) and val.startswith("http"):
+                        audio_url = val
+                        break
 
         if not video_url:
             await context.bot.edit_message_text(
