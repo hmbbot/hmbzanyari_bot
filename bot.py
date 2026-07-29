@@ -15,18 +15,18 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
     
     if not url.startswith("http"):
-        await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینەی ڤیدیۆ بنێرە (یوتیوب، تیکتۆک، اینستاگرام، و هتد).")
+        await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینەی ڤیدیۆ بنێرە.")
         return
 
-    status_message = await update.message.reply_text("⏳ خەریکە کوالیتی ڕاستەقینەی ڤیدیۆکە دادەبەزێنم...")
+    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە دادەبەزێنم...")
 
-    # ڕێکخستنی yt-dlp بۆ بەدەستهێنانی باشترین و بەرزترین کوالیتی ڕەسەن (Original Quality)
     output_template = 'video_%(id)s.%(ext)s'
+    
+    # ڕێکخستنی زیرەک: ئەگەر ڤیدیۆکە گەورە بوو، کوالیتییەک هەڵبژێرە کە قەبارەکەی گونجاو بێت بۆ تێلیگرام
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best', # هەڵبژاردنی باشترین ڤیدیۆ و دەنگی ڕەسەن
+        'format': 'best[filesize<50M]/bestvideo[filesize<50M]+bestaudio/best',
         'outtmpl': output_template,
         'merge_output_format': 'mp4',
-        'max_filesize': 50 * 1024 * 1024, # سنووری ٥٠ مێگابایت بۆ ناردن لە ڕێگەی بۆتی تێلیگرامەوە
     }
 
     filename = None
@@ -40,7 +40,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="📤 ڤیدیۆکە بە کوالیتی ڕاستەقینە دابەزی، ئێستا دەنێرم..."
+            text="📤 ڤیدیۆکە ئامادە بوو، ئێستا دەنێرم..."
         )
 
         with open(filename, 'rb') as video_file:
@@ -67,7 +67,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="⚠️ ببورە، قەبارەی ئەم ڤیدیۆیە بە کوالیتی ڕاستەقینە لە ٥٠ مێگابایت گەورەترە و ناتوانرێت ڕاستەوخۆ لە تێلیگرامدا بنێررێت."
+            text="⚠️ ببورە، ئەم لینکە کێشەی هەیە یان ڤیدیۆکەی زۆر درێژە و ناتوانرێت داببەزێنرێت."
         )
 
 if __name__ == '__main__':
@@ -77,5 +77,5 @@ if __name__ == '__main__':
         app = ApplicationBuilder().token(TOKEN).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
         
-        print("🤖 بۆتی دابەزێنەری ڤیدیۆ (بە کوالیتی ڕاستەقینە) دەستی بە کارکردن کرد...")
+        print("🤖 بۆتی دابەزێنەری ڤیدیۆ دەستی بە کارکردن کرد...")
         app.run_polling()
