@@ -10,7 +10,6 @@ logging.basicConfig(
 )
 
 TOKEN = os.environ.get("TOKEN")
-# لێرەدا API Key دەخوێنرێتەوە لە متوڕی ژینگەیی ڕایلوە
 RAPID_API_KEY = os.environ.get("RAPID_API_KEY")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,11 +54,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await query.message.reply_text("⏳ خەریکە فایلەکە ئامادە دەکەم...")
 
     try:
-        api_url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/vid/index"
-        querystring = {"url": url}
+        # ئیندپۆینتی ڕاستەقینە بۆ وەرگرتنی زانیاری ڤیدیۆ لە ڕاپیدئەیپی
+        api_url = "https://tiktok-video-no-watermark2.p.rapidapi.com/feed/index"
+        querystring = {"url": url, "hd": "1"}
         headers = {
             "x-rapidapi-key": RAPID_API_KEY,
-            "x-rapidapi-host": "tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com",
+            "x-rapidapi-host": "tiktok-video-no-watermark2.p.rapidapi.com",
             "Content-Type": "application/json"
         }
 
@@ -71,22 +71,11 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
 
-        def find_urls(obj):
-            nonlocal video_url, audio_url
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    if isinstance(v, str) and v.startswith("http"):
-                        if any(ext in v.lower() for ext in [".mp4", "video", "play", "dl"]) and not video_url:
-                            video_url = v
-                        elif any(ext in v.lower() for ext in [".mp3", "audio", "music", "sound"]) and not audio_url:
-                            audio_url = v
-                    elif isinstance(v, (dict, list)):
-                        find_urls(v)
-            elif isinstance(obj, list):
-                for item in obj:
-                    find_urls(item)
-
-        find_urls(res)
+        if isinstance(res, dict):
+            data_dict = res.get("data", res)
+            if isinstance(data_dict, dict):
+                video_url = data_dict.get("hdplay") or data_dict.get("play") or data_dict.get("video")
+                audio_url = data_dict.get("music") or data_dict.get("audio")
 
         if not video_url:
             await context.bot.edit_message_text(
