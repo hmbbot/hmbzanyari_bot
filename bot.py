@@ -18,14 +18,17 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ تکایە لینکێکی ڕاستەقینەی ڤیدیۆ بنێرە.")
         return
 
-    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە دادەبەزێنم...")
+    status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆکە بچووک دەبەمەوە و دادەبەزێنم...")
 
     output_template = 'video_%(id)s.%(ext)s'
+    
+    # ڕێکخستنی زیرەک: خۆکارانە کوالیتییەک هەڵدەبژێرێت کە قەبارەکەی لە ٥٠ مێگابایت کەمتر باشد
     ydl_opts = {
-        'format': 'best[filesize<50M]/best',
+        'format': 'best[filesize<45M]/bestvideo[filesize<45M]+bestaudio/best[height<=720]',
         'outtmpl': output_template,
         'geo_bypass': True,
         'nocheckcertificate': True,
+        'merge_output_format': 'mp4',
     }
 
     filename = None
@@ -33,6 +36,8 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
+            if not filename.endswith('.mp4'):
+                filename = os.path.splitext(filename)[0] + '.mp4'
 
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -64,7 +69,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_message.message_id,
-            text="⚠️ ببورە، قەبارەی ئەم ڤیدیۆیە زۆر گەورەیە یان لینکەکە کێشەی هەیە."
+            text="⚠️ ببورە، ئەم ڤیدیۆیە زۆر درێژە یان لە توانای دابەزاندن بەدەرە."
         )
 
 if __name__ == '__main__':
