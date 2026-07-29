@@ -54,16 +54,18 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await query.message.reply_text("⏳ خەریکە فایلەکە ئامادە دەکەم...")
 
     try:
-        # ئیندپۆینتی ڕاستەقینە بۆ وەرگرتنی زانیاری ڤیدیۆ لە ڕاپیدئەیپی
-        api_url = "https://tiktok-video-no-watermark2.p.rapidapi.com/feed/index"
-        querystring = {"url": url, "hd": "1"}
+        api_key = RAPID_API_KEY.strip() if RAPID_API_KEY else ""
+
+        # ئیندپۆینتی ڕاستەقینە بە شێوازی POST
+        api_url = "https://tiktok-video-no-watermark2.p.rapidapi.com/"
+        payload = {"url": url, "hd": "1"}
         headers = {
-            "x-rapidapi-key": RAPID_API_KEY,
+            "x-rapidapi-key": api_key,
             "x-rapidapi-host": "tiktok-video-no-watermark2.p.rapidapi.com",
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-www-form-urlencoded"
         }
 
-        response = requests.get(api_url, headers=headers, params=querystring, timeout=20)
+        response = requests.post(api_url, data=payload, headers=headers, timeout=20)
         res = response.json()
         
         print(f"API RESPONSE: {res}")
