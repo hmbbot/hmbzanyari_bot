@@ -11,7 +11,6 @@ logging.basicConfig(
 
 TOKEN = os.environ.get("TOKEN")
 
-# فەرهەنگی زمانەکان بۆ ئەم کۆدە
 TRANSLATIONS = {
     "ckb": {
         "welcome": "👋 سڵاو! تکایە زمانەکەت هەڵبژێرە:\n👇 Please select your language:",
@@ -75,7 +74,7 @@ TRANSLATIONS = {
         "error_general": "⚠️ Dosya alınırken bir hata oluştu.",
         "error_not_found": "⚠️ Bu TikTok bağlantısı okunamadı.",
         "audio_not_found": "⚠️ Bu video için ayrı bir müzik bulunamadı.",
-        "images_found": "📸 Fotoğraflار bulundu, sohbete gönderiliyor..."
+        "images_found": "📸 Fotoğraflar bulundu, sohbete gönderiliyor..."
     }
 }
 
@@ -158,7 +157,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data_callback = query.data
 
-    # گۆڕینی زمان ئەگەر لە دوگمەکانی سەرتا ئەوە داگیرابوو
     if data_callback.startswith("lang_"):
         lang_code = data_callback.split("_")[1]
         context.user_data['language'] = lang_code
