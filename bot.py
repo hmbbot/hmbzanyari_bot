@@ -50,11 +50,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg.message_id)
                 return
 
-            # هەڵگرتنی ناوی مۆسیقاکە بۆ ئەوەی دواتر گۆرانییە تەواوەکەی پێ بدۆزینەوە
+            # چاککردن و پاککردنەوەی ناوی مۆسیقاکە بۆ ئەوەی لە یوتیوب بە جوانی بگەڕێت
             music_info = data.get("music_info", {})
-            music_title = music_info.get("title") or data.get("title") or "TikTok Audio"
-            music_author = music_info.get("author") or "TikTok"
-            context.user_data['music_query'] = f"{music_title} - {music_author}"
+            music_title = music_info.get("title") or ""
+            video_title = data.get("title") or "TikTok Audio"
+            
+            if len(music_title) > 30 or "http" in music_title or not music_title:
+                music_query = video_title
+            else:
+                music_query = f"{music_title} - {music_info.get('author', '')}"
+                
+            context.user_data['music_query'] = music_query
 
     except Exception as e:
         logging.error(f"Error fetching info: {str(e)}")
@@ -202,7 +208,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             except Exception as audio_err:
                 logging.error(f"Audio download error: {str(audio_err)}")
-                # وەک پشتگیریکەر، ئەگەر داگرتنەکە کێشەی هەبوو لینکی ئاسایی دەگەڕێنینەوە
                 music_url = res.get("data", {}).get("music")
                 if music_url:
                     await query.message.reply_audio(audio=music_url, title=title)
