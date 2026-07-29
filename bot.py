@@ -58,15 +58,18 @@ async def instagram_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ خەریکە ڤیدیۆی اینستاگرام ئامادە دەکەم...")
 
     try:
-        # بەکارهێنانی APIـی نوێ و جێگیرتر بۆ اینستاگرام
-        api_url = f"https://api.ryzendev.com/api/downloader/igdl?url={url}"
-        res = requests.get(api_url, timeout=20).json()
+        # بەکارهێنانی APIـیەکی نوێ و جێگیر بۆ اینستاگرام
+        api_url = f"https://kaiz-apis.gleeze.com/api/insta?url={url}"
+        res = requests.get(api_url, timeout=25).json()
         
         video_url = None
-        if "data" in res and isinstance(res["data"], list) and len(res["data"]) > 0:
-            video_url = res["data"][0].get("url")
-        elif "url" in res:
+        if "url" in res:
             video_url = res["url"]
+        elif "data" in res:
+            if isinstance(res["data"], list) and len(res["data"]) > 0:
+                video_url = res["data"][0].get("url")
+            elif isinstance(res["data"], str):
+                video_url = res["data"]
 
         if video_url:
             await context.bot.edit_message_text(
