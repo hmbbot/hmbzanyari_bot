@@ -68,7 +68,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = None
         audio_url = None
 
-        # هێنانی لینکەکان لەو فۆرماتەی کە لە وێنەکەدا دەرکەوت
         if "video" in res and isinstance(res["video"], list) and len(res["video"]) > 0:
             video_url = res["video"][0]
         
@@ -137,4 +136,4 @@ if __name__ == '__main__':
         app.add_handler(CallbackQueryHandler(button_click))
         
         print("🤖 بۆت دەستی بە کارکردن کرد...")
-        app.run_polling()
+        app.run_polling(drop_pending_updates=True)
