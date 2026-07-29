@@ -28,8 +28,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [
-            InlineKeyboardButton("🎬 ڤیدیۆ (لینک)", callback_data="dl_video"),
-            InlineKeyboardButton("🎵 MP3 (لینک)", callback_data="dl_mp3")
+            InlineKeyboardButton("🎬 ڤیدیۆ (ناو چات)", callback_data="dl_video"),
+            InlineKeyboardButton("🎵 MP3", callback_data="dl_mp3")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -50,24 +50,23 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     action = query.data
-    status_message = await query.message.reply_text("⏳ خەریکە لینکەکان ئامادە دەکەم...")
+    status_message = await query.message.reply_text("⏳ خەریکە ڤیدیۆکە دەهێنمە ناو چات...")
 
     try:
         api_url = "https://www.tikwm.com/api/"
-        querystring = {"url": url, "hd": "1"}
+        querystring = {"url": url}
 
         response = requests.get(api_url, params=querystring, timeout=20)
         res = response.json()
 
         video_url = None
         audio_url = None
-        title = "تیکتۆک"
 
         if isinstance(res, dict) and res.get("code") == 0:
             data = res.get("data", {})
-            video_url = data.get("hdplay") or data.get("play")
+            # بەکارهێنانی لینکی ئاسایی بۆ ئەوەی بەبێ کێشە بێتە ناو چات
+            video_url = data.get("play") or data.get("hdplay")
             audio_url = data.get("music")
-            title = data.get("title", "فایلی تیکتۆک")
 
         if not video_url:
             await context.bot.edit_message_text(
@@ -78,35 +77,33 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if action == "dl_video":
-            keyboard = [[InlineKeyboardButton("🔗 داگرتنی ڤیدیۆ (بێ لۆگۆ)", url=video_url)]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_message.message_id,
-                text=f"📌 **ناونیشان:** {title}\n\n🎬 ڤیدیۆکەت ئامادەیە بە کوالیتی بەرز:",
-                reply_markup=reply_markup,
-                parse_mode="Markdown"
+                text="📤 ڤیدیۆکە دەنێرمە ناو چات..."
             )
+            await query.message.reply_video(video=video_url, supports_streaming=True)
 
         elif action == "dl_mp3":
             if audio_url:
-                keyboard = [[InlineKeyboardButton("🔗 داگرتنی دەنگی MP3", url=audio_url)]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id,
-                    text=f"📌 **ناونیشان:** {title}\n\n🎵 دەنگی MP3 ئامادەیە:",
-                    reply_markup=reply_markup,
-                    parse_mode="Markdown"
+                    text="📤 دەنگی MP3 دەنێرمە ناو چات..."
                 )
+                await query.message.reply_audio(audio=audio_url)
             else:
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_message.message_id,
                     text="⚠️ مۆسیقا بۆ ئەم ڤیدیۆیە بە جیا نەدۆزراوەتەوە."
                 )
+                return
+
+        await context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=status_message.message_id
+        )
 
     except Exception as e:
         logging.error(f"Error: {str(e)}")
